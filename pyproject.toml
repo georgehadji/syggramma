@@ -1,0 +1,191 @@
+[project]
+name = "syggramma"
+version = "0.1.0"
+description = "Market-intelligence and author-outreach system for Εκδόσεις Κυριακίδη"
+readme = "README.md"
+authors = [
+    { name = "vivlosbooks", email = "vivlosbooks@gmail.com" }
+]
+requires-python = ">=3.12"
+dependencies = [
+    "pydantic>=2.0,<3",
+    "pydantic-settings>=2.0,<3",
+    "httpx>=0.27,<1",
+    "tenacity>=8,<10",
+    "sqlalchemy>=2.0,<3",
+    "psycopg[binary]>=3.1,<4",
+    "alembic>=1.12,<2",
+    "fastapi>=0.110,<1",
+    "uvicorn[standard]>=0.27,<1",
+    "structlog>=24,<25",
+    "rapidfuzz>=3,<4",
+    "typer>=0.12,<1",
+    "apscheduler>=3.10,<4",
+    "jinja2>=3.1,<4",
+    "cryptography>=41,<44",
+    "orjson>=3.9,<4",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8,<9",
+    "pytest-asyncio>=0.23,<1",
+    "pytest-cov>=5,<6",
+    "mypy>=1.9,<2",
+    "ruff>=0.3,<1",
+    "hypothesis>=6.98,<7",
+    "respx>=0.21,<1",
+    "testcontainers[postgres]>=4,<5",
+    "bandit>=1.7,<2",
+    "pip-audit>=2.7,<3",
+    "import-linter>=2,<3",
+    "pre-commit>=3.6,<4",
+    "httpx>=0.27,<1",  # explicit for test dependency tree
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.ruff]
+target-version = "py312"
+line-length = 100
+
+[tool.ruff.lint]
+select = [
+    "E", "W", "F", "I", "N", "D", "UP", "YTT",
+    "ANN", "ARG", "BLE", "C4", "COM", "DJ",
+    "EM", "EXE", "FA", "FBT", "ICN", "G",
+    "INP", "INT", "ISC", "LOG", "NPY",
+    "PD", "PIE", "PL", "PTH", "PYI", "RET",
+    "RSE", "RUF", "SIM", "SLF", "SLOT", "T10",
+    "T20", "TCH", "TID", "TRY", "UP", "W", "YTT",
+]
+ignore = [
+    "ANN101",  # missing-type-self (deprecated rule, kept for compat)
+    "ANN102",  # missing-type-cls (deprecated rule, kept for compat)
+    "ANN401",  # dynamically-typed-any — allow during early development
+    "D100",    # missing-module-docstring (project convention)
+    "D101",    # missing-class-docstring
+    "D102",    # missing-method-docstring
+    "D103",    # missing-function-docstring
+    "D104",    # missing-package-docstring
+    "D105",    # missing-docstring-in-magic-method
+    "D107",    # missing-init-docstring
+    "D203",    # 1-blank-line-before-class
+    "D212",    # multi-line-summary-first-line
+    "D213",    # multi-line-summary-second-line
+    "D401",    # imperative-mood
+    "D415",    # ends-in-punctuation
+    "EM101",   # raw-string-in-exception
+    "EM102",   # f-string-in-exception
+    "PLR2004", # magic-value-comparison
+    "RUF002",  # ambiguous-unicode-character-in-docstring
+    "SLOT000", # slots-for-str-subclass
+    "TC001",   # type-checking-imports — all imports valid at runtime
+    "TC003",   # type-checking-stdlib-imports
+    "UP046",   # generic-class-style — python 3.12 style is fine
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["ANN", "D", "ARG", "S101"]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+line-ending = "auto"
+
+[tool.mypy]
+strict = true
+python_version = "3.12"
+show_error_codes = true
+warn_unused_ignores = true
+warn_redundant_casts = true
+warn_unused_configs = true
+disallow_any_unimported = true
+disallow_any_expr = false
+disallow_any_decorated = false
+disallow_any_explicit = false
+disallow_any_generics = true
+disallow_subclassing_any = true
+check_untyped_defs = true
+no_implicit_reexport = true
+strict_equality = true
+
+[[tool.mypy.overrides]]
+module = ["tests.*"]
+ignore_errors = false
+disallow_untyped_defs = false
+disallow_incomplete_defs = false
+
+[[tool.mypy.overrides]]
+module = ["alembic.*", "apscheduler.*"]
+ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+minversion = "8.0"
+testpaths = ["tests"]
+python_files = ["test_*.py", "*_test.py"]
+asyncio_mode = "auto"
+filterwarnings = [
+    "error",
+    "ignore::DeprecationWarning:alembic.*",
+    "ignore::DeprecationWarning:pkg_resources",
+]
+addopts = "-ra --strict-config --strict-markers -p no:cacheprovider"
+
+[tool.coverage.run]
+source = ["syggramma"]
+branch = true
+
+[tool.coverage.report]
+fail_under = 80
+show_missing = true
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "raise NotImplementedError",
+    "if __name__ == .__main__.:",
+    "if TYPE_CHECKING:",
+]
+
+[tool.importlinter]
+root_packages = ["syggramma"]
+include_local = true
+
+[[tool.importlinter.contracts]]
+name = "Layered architecture"
+type = "layers"
+layers = [
+    "syggramma.api",
+    "syggramma.cli",
+    "syggramma.app",
+    "syggramma.pipelines",
+    "syggramma.ports",
+    "syggramma.domain",
+    "syggramma.kernel",
+]
+
+[[tool.importlinter.contracts]]
+name = "Adapters are leaves"
+type = "forbidden"
+source_modules = [
+    "syggramma.domain",
+    "syggramma.pipelines",
+]
+forbidden_modules = [
+    "syggramma.adapters",
+]
+
+[[tool.importlinter.contracts]]
+name = "Adapters may import domain"
+type = "forbidden"
+source_modules = [
+    "syggramma.adapters",
+]
+forbidden_modules = [
+    "syggramma.app",
+    "syggramma.api",
+    "syggramma.cli",
+    "syggramma.pipelines",
+]
