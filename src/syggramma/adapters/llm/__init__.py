@@ -36,39 +36,52 @@ Rules:
 """
 
     def __init__(self, settings: Settings | None = None) -> None:
-        self._settings = settings or Settings()
+        self._s = settings or Settings()
 
-        # Provider 1: Anthropic
-        self._anthropic_key = self._settings.anthropic_api_key
-        self._anthropic_model = self._settings.anthropic_model
-        self._anthropic_tokens = self._settings.anthropic_max_tokens
+        # Native APIs (tried first if keys are set)
+        self._anthropic_key = self._s.anthropic_api_key
+        self._anthropic_model = self._s.anthropic_model
+        self._grok_key = self._s.grok_api_key
+        self._grok_model = self._s.grok_model
 
-        # Provider 2: OpenRouter
-        self._openrouter_key = self._settings.openrouter_api_key
-        self._openrouter_model = self._settings.openrouter_model
-        self._openrouter_tokens = self._settings.openrouter_max_tokens
-
-        # Provider 3: Grok
-        self._grok_key = self._settings.grok_api_key
-        self._grok_model = self._settings.grok_model
-        self._grok_tokens = self._settings.grok_max_tokens
+        # OpenRouter tiered models (tried in order if OR key is set)
+        self._or_key = self._s.openrouter_api_key
+        self._or_models = [
+            self._s.openrouter_tier1_model,   # Claude Sonnet 5  $12/M
+            self._s.openrouter_tier2_model,   # Gemini 2.5 Flash $3/M
+            self._s.openrouter_tier3_model,   # DeepSeek V4 Pro $1/M
+            self._s.openrouter_tier4_model,   # Gemini Flash Lite FREE
+        ]
+        self._or_tokens = self._s.openrouter_max_tokens
+        self._or_attempted: list[str] = []  # Track which provider succeeded
 
     async def draft(
         self,
         prompt: str,
         context: dict[str, Any] | None = None,
     ) -> str:
-        """Draft an email body.  Tries providers in order; falls back to template."""
+        """Draft an email. Tries: Native Anthropic -> Grok -> OR T1-T4 -> template."""
         ctx = context or {}
         user_msg = self._build_user_message(prompt, ctx)
 
-        # Try each provider in order
-        for attempt in [self._try_anthropic, self._try_openrouter, self._try_grok]:
-            result = await attempt(user_msg)
-            if result is not None:
-                return result
+        # 1. Native Anthropic API (if key set)
+        result = await self._try_anthropic(user_msg)
+        if result is not None:
+            return result
 
-        # All providers failed — use template fallback
+        # 2. Native Grok API (if key set)
+        result = await self._try_grok(user_msg)
+        if result is not None:
+            return result
+
+        # 3. OpenRouter tiered models (T1 -> T4)
+        if self._or_key:
+            for model in self._or_models:
+                result = await self._try_openrouter(model, user_msg)
+                if result is not None:
+                    return result
+
+        # 4. Template fallback
         return self._template_draft(prompt, ctx)
 
     # ── Provider attempts ──────────────────────────────────────────────────
@@ -87,7 +100,7 @@ Rules:
                     },
                     json={
                         "model": self._anthropic_model,
-                        "max_tokens": self._anthropic_tokens,
+                        "max_tokens": self._s.anthropic_max_tokens,
                         "system": self.SYSTEM_PROMPT,
                         "messages": [{"role": "user", "content": user_msg}],
                     },
@@ -96,22 +109,22 @@ Rules:
                 data: dict[str, Any] = response.json()
                 return str(data["content"][0]["text"]).strip()
         except Exception:
-            return None  # fall through to next provider
+            return None
 
-    async def _try_openrouter(self, user_msg: str) -> str | None:
-        if not self._openrouter_key:
+    async def _try_openrouter(self, model: str, user_msg: str) -> str | None:
+        if not self._or_key:
             return None
         try:
             async with httpx.AsyncClient(timeout=httpx.Timeout(30.0)) as http:
                 response = await http.post(
                     "https://openrouter.ai/api/v1/chat/completions",
                     headers={
-                        "Authorization": f"Bearer {self._openrouter_key}",
+                        "Authorization": f"Bearer {self._or_key}",
                         "Content-Type": "application/json",
                     },
                     json={
-                        "model": self._openrouter_model,
-                        "max_tokens": self._openrouter_tokens,
+                        "model": model,
+                        "max_tokens": self._or_tokens,
                         "messages": [
                             {"role": "system", "content": self.SYSTEM_PROMPT},
                             {"role": "user", "content": user_msg},
@@ -137,7 +150,7 @@ Rules:
                     },
                     json={
                         "model": self._grok_model,
-                        "max_tokens": self._grok_tokens,
+                        "max_tokens": self._s.grok_max_tokens,
                         "messages": [
                             {"role": "system", "content": self.SYSTEM_PROMPT},
                             {"role": "user", "content": user_msg},

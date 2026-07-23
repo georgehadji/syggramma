@@ -41,16 +41,25 @@ class Settings(BaseSettings):
     crossref_base_url: str = "https://api.crossref.org/"
     crossref_max_rps: float = 5.0
 
-    # ── LLM providers (tried in order: Anthropic → OpenRouter → Grok) ──────
-    anthropic_api_key: str = ""
+    # ── LLM providers (tiered fallback: quality → value → free → template) ────
+    # T1: Claude Sonnet 5 (best Greek quality at good price, $12/Mtok)
+    # T2: Gemini 2.5 Flash (excellent multilingual, $3/Mtok)
+    # T3: DeepSeek V4 Pro (best value, $1/Mtok)
+    # T4: Gemini 2.5 Flash Lite (free)
+    # Native Anthropic + Grok keys tried first if configured
+
+    anthropic_api_key: str = ""       # sk-ant-... native Anthropic
     anthropic_model: str = "claude-sonnet-4-20250514"
     anthropic_max_tokens: int = 4096
 
-    openrouter_api_key: str = ""
-    openrouter_model: str = "anthropic/claude-sonnet-4.6"
+    openrouter_api_key: str = ""      # sk-or-v1-... OpenRouter
+    openrouter_tier1_model: str = "anthropic/claude-sonnet-5"
+    openrouter_tier2_model: str = "google/gemini-2.5-flash"
+    openrouter_tier3_model: str = "deepseek/deepseek-v4-pro"
+    openrouter_tier4_model: str = "google/gemini-2.5-flash-lite"
     openrouter_max_tokens: int = 4096
 
-    grok_api_key: str = ""
+    grok_api_key: str = ""            # xai-... xAI Grok
     grok_model: str = "x-ai/grok-4.5"
     grok_max_tokens: int = 4096
 
