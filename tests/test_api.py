@@ -2,36 +2,25 @@
 
 from __future__ import annotations
 
-from collections.abc import Sequence
 from typing import Any
+from unittest.mock import MagicMock, patch
 
 import httpx
 import pytest
-from syggramma.api import app, get_repo
-from syggramma.adapters.db.repository import Repository
-from syggramma.domain import Match
-from syggramma.kernel import MatchId
-
-
-class StubRepository:
-    """A Repository stub that doesn't connect to PostgreSQL."""
-
-    async def get_matches_for_review(self, limit: int = 50) -> Sequence[Match]:
-        return []  # type: ignore[return-value]
-
-    async def __aenter__(self) -> StubRepository:
-        return self
-
-    async def __aexit__(self, *args: Any) -> None:
-        pass
+from syggramma.api import app, _get_conn
 
 
 @pytest.fixture(autouse=True)
-def override_repo() -> None:
-    """Override the Repository dependency for all API tests."""
-    app.dependency_overrides[get_repo] = lambda: StubRepository()
-    yield
-    app.dependency_overrides.clear()
+def mock_db() -> Any:
+    """Mock psycopg connections so tests don't need a real DB."""
+    mock_conn = MagicMock()
+    mock_conn.__enter__ = MagicMock(return_value=mock_conn)
+    mock_conn.__exit__ = MagicMock(return_value=None)
+    mock_conn.execute.return_value.fetchall.return_value = []
+    mock_conn.execute.return_value.fetchone.return_value = {"n": 138}
+
+    with patch("syggramma.api._get_conn", return_value=mock_conn):
+        yield
 
 
 @pytest.fixture
@@ -72,3 +61,15 @@ class TestAPI:
         response = await client.get("/review/matches/1")
         assert response.status_code == 200
         assert "text/html" in response.headers["content-type"]
+
+    async def test_approve_match(self, client: httpx.AsyncClient) -> None:
+        """Approve match returns ok."""
+        response = await client.post("/review/matches/1/approve", params={"reviewer_id": "test"})
+        assert response.status_code == 200
+        assert response.json()["status"] == "ok"
+
+    async def test_reject_match(self, client: httpx.AsyncClient) -> None:
+        """Reject match returns ok."""
+        response = await client.post("/review/matches/1/reject", params={"reviewer_id": "test"})
+        assert response.status_code == 200
+        assert response.json()["status"] == "ok"

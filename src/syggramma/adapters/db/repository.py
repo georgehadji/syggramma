@@ -17,14 +17,10 @@ from syggramma.adapters.db.models import Base
 from syggramma.config import settings
 from syggramma.domain import (
     Book,
-    Campaign,
-    Contact,
     Course,
     Department,
     Distribution,
     Institution,
-    Match,
-    Message,
     Person,
     Review,
 )
@@ -41,10 +37,8 @@ class Repository:
 
     def __init__(self, db_url: str | None = None) -> None:
         url = db_url or settings.db_url
-        # Convert psycopg to async + asyncpg for the async driver
-        async_url = url.replace("psycopg://", "postgresql+asyncpg://")
         self._engine = create_async_engine(
-            async_url,
+            url,
             echo=settings.db_echo,
             pool_size=settings.db_pool_size,
             max_overflow=settings.db_max_overflow,
@@ -255,28 +249,96 @@ class Repository:
             )
             return list(result.mappings().all())
 
-    # ── Entity stubs (Domain CRM entities — full impl in later milestones) ──
+    # ── Entity operations ──────────────────────────────────────────────
 
     async def store_person(self, person: Person) -> Person:
-        return person  # stub
-
-    async def store_match(self, match: Match) -> Match:
-        return match  # stub
-
-    async def store_contact(self, contact: Contact) -> Contact:
-        return contact  # stub
-
-    async def store_message(self, message: Message) -> Message:
-        return message  # stub
-
-    async def store_campaign(self, campaign: Campaign) -> Campaign:
-        return campaign  # stub
-
-    async def store_review(self, review: Review) -> Review:
-        return review  # stub
+        async with self._session_factory() as session:
+            stmt = text("""
+                INSERT INTO person (display_name, canonical_surname, canonical_given)
+                VALUES (:dn, :cs, :cg)
+                ON CONFLICT DO NOTHING
+                RETURNING id
+            """)
+            result = await session.execute(stmt, {
+                "dn": person.display_name,
+                "cs": person.canonical_surname,
+                "cg": person.canonical_given,
+            })
+            row = result.fetchone()
+            if row:
+                person.id = PersonId(row[0])
+            await session.commit()
+        return person
 
     async def get_person_by_id(self, person_id: PersonId) -> Person | None:
-        return None  # stub
+        async with self._session_factory() as session:
+            result = await session.execute(
+                text(
+                    "SELECT id, display_name, canonical_surname, "
+                    "canonical_given FROM person WHERE id = :pid",
+                ),
+                {"pid": int(person_id)},
+            )
+            row = result.fetchone()
+            if row is None:
+                return None
+            return Person(
+                id=PersonId(row[0]),
+                display_name=row[1] or "",
+                canonical_surname=row[2] or "",
+                canonical_given=row[3] or "",
+            )
 
-    async def get_matches_for_review(self, limit: int = 50) -> Sequence[Match]:
-        return []  # stub
+    async def get_matches_for_review(self, limit: int = 50) -> Sequence[dict[str, object]]:
+        """Return persons with aliases as potential match review candidates."""
+        async with self._session_factory() as session:
+            result = await session.execute(
+                text("""
+                    SELECT p.id, p.display_name, p.canonical_surname,
+                           COUNT(pa.id) AS alias_count
+                    FROM person p
+                    LEFT JOIN person_alias pa ON pa.person_id = p.id
+                    GROUP BY p.id, p.display_name, p.canonical_surname
+                    HAVING COUNT(pa.id) > 0
+                    ORDER BY alias_count DESC
+                    LIMIT :lim
+                """),
+                {"lim": limit},
+            )
+            rows = result.fetchall()
+            return [dict(r._mapping) for r in rows]  # noqa: SLF001
+
+    async def get_stats(self) -> dict[str, int]:
+        """Return dashboard stats (person count, course count, etc.)."""
+        async with self._session_factory() as session:
+            from sqlalchemy import text
+            r = await session.execute(text("SELECT COUNT(*) FROM person"))
+            row = r.fetchone()
+            persons = row[0] if row is not None else 0
+            r = await session.execute(text("SELECT COUNT(*) FROM course"))
+            row = r.fetchone()
+            courses = row[0] if row is not None else 0
+            r = await session.execute(text("SELECT COUNT(*) FROM book"))
+            row = r.fetchone()
+            books = row[0] if row is not None else 0
+            return {"persons": persons, "courses": courses, "books": books}
+
+    async def store_review(self, review: Review) -> Review:
+        async with self._session_factory() as session:
+            stmt = text("""
+                INSERT INTO review (subject_type, subject_id, verdict, reviewer_id, note)
+                VALUES (:st, :sid, :v, :rid, :n)
+                RETURNING id
+            """)
+            result = await session.execute(stmt, {
+                "st": review.subject_type,
+                "sid": review.subject_id,
+                "v": review.verdict,
+                "rid": int(review.reviewer_id) if review.reviewer_id else None,
+                "n": review.note,
+            })
+            row = result.fetchone()
+            if row:
+                review.id = row[0]
+            await session.commit()
+        return review
