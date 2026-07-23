@@ -1,0 +1,32 @@
+======================================================================
+  SYGGRAMMA — FULL HARVEST RESULTS
+  ALL GREEK ACADEMIC DEPARTMENTS, YEAR 2024
+======================================================================
+
+DATA (PostgreSQL — postgresql://syggramma:syggramma@localhost:5432/syggramma)
+
+  Departments:     437   (all active Greek higher-ed departments)
+  Courses:       45,644   (every course taught in 2024)
+  Books:            223   (subset fetched so far — full book fetch pending)
+  Persons:        7,368   (unique professors/authors resolved)
+  Aliases:       17,734   (name variants mapping to persons)
+
+API DASHBOARD
+  http://localhost:8001            — Dashboard with live stats
+  http://localhost:8001/health     — Health check
+  http://localhost:8001/review/matches — Person match review queue
+
+RAW SNAPSHOTS
+  data/snapshots/                  — 477 content-addressed JSON files
+                                    (full Eudoxus API responses)
+
+REPORTS (saved to disk)
+  harvest_report.txt               — Initial pilot harvest summary
+  resolve_report.txt               — Person resolution summary  
+  model_research.txt               — LLM model comparison
+
+SCRIPTS (reproducible)
+  scripts/resolve_professors.py    — Re-run person resolution
+  scripts/fetch_books.py           — Re-run book fetching
+  scripts/import_courses.py        — Re-run course import from snapshots
+  scripts/enrich_sample.py         — OpenAlex enrichment
