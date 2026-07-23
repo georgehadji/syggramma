@@ -41,10 +41,18 @@ class Settings(BaseSettings):
     crossref_base_url: str = "https://api.crossref.org/"
     crossref_max_rps: float = 5.0
 
-    # ── Anthropic (LLM) ──────────────────────────────────────────────────
+    # ── LLM providers (tried in order: Anthropic → OpenRouter → Grok) ──────
     anthropic_api_key: str = ""
     anthropic_model: str = "claude-sonnet-4-20250514"
     anthropic_max_tokens: int = 4096
+
+    openrouter_api_key: str = ""
+    openrouter_model: str = "anthropic/claude-sonnet-4.6"
+    openrouter_max_tokens: int = 4096
+
+    grok_api_key: str = ""
+    grok_model: str = "x-ai/grok-4.5"
+    grok_max_tokens: int = 4096
 
     # ── SMTP / Mail ──────────────────────────────────────────────────────
     smtp_host: str = "localhost"

@@ -6,15 +6,18 @@ ARCHITECTURE.md §6.5: Review UI via HTMX + Jinja2, server-rendered.
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
-from fastapi import FastAPI, Request
+from fastapi import Depends, FastAPI, Request
 from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
-from starlette.responses import Response
 
 from syggramma import __version__
+from syggramma.adapters.db.repository import Repository
+
+if TYPE_CHECKING:
+    from starlette.responses import Response
 
 app = FastAPI(
     title="Syggramma",
@@ -29,6 +32,21 @@ templates = Jinja2Templates(directory=str(HERE / "templates"))
 if (HERE / "static").exists():
     app.mount("/static", StaticFiles(directory=str(HERE / "static")), name="static")
 
+# ── Dependency: Repository ────────────────────────────────────────────────
+
+_repo: Repository | None = None
+
+
+def get_repo() -> Repository:
+    """Provide the singleton Repository instance.
+
+    In tests, override via app.dependency_overrides[get_repo].
+    """
+    global _repo  # noqa: PLW0603
+    if _repo is None:
+        _repo = Repository()
+    return _repo
+
 
 def _render(name: str, request: Request, **context: Any) -> Response:
     """Render a Jinja2 template to an HTML response."""
@@ -40,10 +58,11 @@ def _render(name: str, request: Request, **context: Any) -> Response:
 # ── Dashboard ──────────────────────────────────────────────────────────────
 
 @app.get("/")
-async def dashboard(request: Request) -> Response:
+async def dashboard(request: Request, repo: Repository = Depends(get_repo)) -> Response:
     """Main dashboard — shows queue counts and quick stats."""
+    matches = await repo.get_matches_for_review(limit=100)
     return _render("dashboard.html", request, queues={
-        "match_review": 0,
+        "match_review": len(matches),
         "person_merge": 0,
     })
 
@@ -51,27 +70,36 @@ async def dashboard(request: Request) -> Response:
 # ── Match review queue ─────────────────────────────────────────────────────
 
 @app.get("/review/matches")
-async def match_review_queue(request: Request) -> Response:
+async def match_review_queue(
+    request: Request, repo: Repository = Depends(get_repo),
+) -> Response:
     """Queue of unresolved matches needing human review."""
-    matches: list[dict[str, Any]] = []
+    matches = await repo.get_matches_for_review(limit=100)
     return _render("match_review.html", request, matches=matches)
 
 
 @app.get("/review/matches/{match_id}")
-async def match_detail(request: Request, match_id: int) -> Response:
+async def match_detail(
+    request: Request, match_id: int, repo: Repository = Depends(get_repo),
+) -> Response:
     """Detail view for a single match with feature vector."""
-    match: dict[str, Any] = {}
+    # TODO: implement repo.get_match_by_id()
+    match: dict[str, Any] = {"id": match_id}
     return _render("match_detail.html", request, match=match)
 
 
 @app.post("/review/matches/{match_id}/approve")
-async def approve_match(match_id: int, reviewer_id: str) -> dict[str, str]:
+async def approve_match(
+    match_id: int, reviewer_id: str = "", repo: Repository = Depends(get_repo),
+) -> dict[str, str]:
     """Approve a match, promoting it to Verified (L4)."""
     return {"status": "ok", "match_id": str(match_id)}
 
 
 @app.post("/review/matches/{match_id}/reject")
-async def reject_match(match_id: int, reviewer_id: str) -> dict[str, str]:
+async def reject_match(
+    match_id: int, reviewer_id: str = "", repo: Repository = Depends(get_repo),
+) -> dict[str, str]:
     """Reject a match."""
     return {"status": "ok", "match_id": str(match_id)}
 

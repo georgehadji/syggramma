@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 import httpx
@@ -28,7 +28,7 @@ class OrcidClient:
             timeout=httpx.Timeout(timeout),
             headers={
                 "Accept": "application/json",
-                "User-Agent": f"Syggramma/0.1",
+                "User-Agent": "Syggramma/0.1",
             },
         )
 
@@ -37,13 +37,14 @@ class OrcidClient:
 
         Args:
             orcid: The ORCID iD in format '0000-0001-2345-6789'.
+
         """
         response = self._client.get(orcid, params={"version": "public"})
         response.raise_for_status()
         return Parsed(
             value=response.json(),
             source_snapshot_id=SnapshotId(0),
-            parsed_at=datetime.now(timezone.utc),
+            parsed_at=datetime.now(UTC),
         )
 
     def extract_name(self, record: dict[str, Any]) -> dict[str, str]:
@@ -58,7 +59,11 @@ class OrcidClient:
     def extract_external_ids(self, record: dict[str, Any]) -> list[dict[str, str]]:
         """Extract external identifiers (Scopus ID, ResearcherID, etc.)."""
         ids: list[dict[str, str]] = []
-        ext_ids = record.get("person", {}).get("external-identifiers", {}).get("external-identifier", [])
+        ext_ids = (
+            record.get("person", {})
+            .get("external-identifiers", {})
+            .get("external-identifier", [])
+        )
         for ext in ext_ids:
             ids.append({
                 "type": ext.get("external-id-type", ""),

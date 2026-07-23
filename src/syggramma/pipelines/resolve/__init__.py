@@ -10,20 +10,17 @@ Implements the architecture described in ARCHITECTURE.md §6.3:
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any
 
 from rapidfuzz import fuzz
 
 from syggramma.domain import Verdict
 from syggramma.kernel import FeatureVector
 from syggramma.pipelines.normalize import (
-    normalize,
-    split_surname_given,
-    _strip_combining_marks,
     _fold_case,
     _fold_final_sigma,
+    _strip_combining_marks,
+    normalize,
 )
-
 
 # ── Scoring types ──────────────────────────────────────────────────────────
 
@@ -58,7 +55,7 @@ def make_feature_vector(match: PersonMatch) -> FeatureVector:
     features["ensemble"] = match.ensemble_score
     return FeatureVector(
         features=features,
-        method=f"resolve.ensemble:v1",
+        method="resolve.ensemble:v1",
     )
 
 
@@ -75,8 +72,7 @@ def make_block_key(normalized: str) -> str:
     if not tokens:
         return ""
     # Take the first token (likely surname in normalized form)
-    key = tokens[0][:4]
-    return key
+    return tokens[0][:4]
 
 
 def make_phonetic_block_key(normalized: str) -> str:
@@ -213,6 +209,7 @@ def _extract_initials(raw: str) -> list[str]:
       'Αθανάσιος Γκίκας' → ['α']
       'ΜΠΕΤΣΑΣ ΙΩΑΝΝΗΣ' → ['ι']
       'ΖΕΡΒΟΥΔΑΚΗΣ Γ.' → ['γ']
+
     """
     s = _strip_combining_marks(raw)
     s = _fold_case(s)
@@ -270,7 +267,7 @@ def _determine_verdict(match: PersonMatch) -> Verdict:
 
     # Check for AUTHOR_SELF: surname exact AND good ensemble
     surname_signal = next(
-        (s for s in match.signals if s.name == "surname_exact"), None
+        (s for s in match.signals if s.name == "surname_exact"), None,
     )
     if surname_signal and surname_signal.score >= 0.99 and score >= 0.80:
         return Verdict.AUTHOR_SELF

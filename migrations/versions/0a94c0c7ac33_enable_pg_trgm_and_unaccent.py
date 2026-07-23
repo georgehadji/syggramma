@@ -23,13 +23,10 @@ def upgrade() -> None:
     op.execute("CREATE EXTENSION IF NOT EXISTS pg_trgm")
     op.execute("CREATE EXTENSION IF NOT EXISTS unaccent")
 
-    # GIN trigram index on person.canonical_surname for blocking
-    op.execute("""
-        CREATE INDEX IF NOT EXISTS ix_person_surname_trgm
-        ON person USING gin (canonical_surname gin_trgm_ops)
-    """)
+    # Note: trigram indexes on person, course, and book tables
+    # are deferred to later migrations when those tables exist.
 
 
 def downgrade() -> None:
-    op.execute("DROP INDEX IF EXISTS ix_person_surname_trgm")
     # Extensions are not dropped in downgrade — other tables may depend on them
+    pass

@@ -6,7 +6,7 @@ clean, has affiliations and topics).  Responses are cached by URL.
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 import httpx
@@ -50,7 +50,7 @@ class OpenAlexClient:
         return Parsed(
             value=data.get("results", []),
             source_snapshot_id=SnapshotId(0),
-            parsed_at=datetime.now(timezone.utc),
+            parsed_at=datetime.now(UTC),
         )
 
     def fetch_author_by_id(self, openalex_id: str) -> Parsed[dict[str, Any]]:
@@ -60,7 +60,7 @@ class OpenAlexClient:
         return Parsed(
             value=response.json(),
             source_snapshot_id=SnapshotId(0),
-            parsed_at=datetime.now(timezone.utc),
+            parsed_at=datetime.now(UTC),
         )
 
     def fetch_works(self, author_id: str, per_page: int = 25) -> Parsed[list[dict[str, Any]]]:
@@ -74,7 +74,7 @@ class OpenAlexClient:
         return Parsed(
             value=data.get("results", []),
             source_snapshot_id=SnapshotId(0),
-            parsed_at=datetime.now(timezone.utc),
+            parsed_at=datetime.now(UTC),
         )
 
     def extract_profile(self, author_data: dict[str, Any]) -> dict[str, Any]:

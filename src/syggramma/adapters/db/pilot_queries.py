@@ -118,8 +118,12 @@ SELECT
     COUNT(DISTINCT b.publisher_id) AS publishers,
     COUNT(DISTINCT c.professor_raw) FILTER (WHERE c.professor_raw != '') AS professors_mentioned,
     COUNT(DISTINCT dist.id) AS distributions,
-    COUNT(DISTINCT dist.book_id) FILTER (WHERE bk.publisher_id = '149848') AS kyriakidis_books_distributed,
-    COUNT(DISTINCT dist.course_id) FILTER (WHERE bk.publisher_id = '149848') AS kyriakidis_course_adoptions
+    COUNT(DISTINCT dist.book_id) FILTER (
+        WHERE bk.publisher_id = '149848'
+    ) AS kyriakidis_books_distributed,
+    COUNT(DISTINCT dist.course_id) FILTER (
+        WHERE bk.publisher_id = '149848'
+    ) AS kyriakidis_course_adoptions
 FROM institution i
 JOIN department d ON d.institution_id = i.id
 JOIN course c ON c.department_id = d.id

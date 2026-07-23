@@ -24,6 +24,7 @@ dependencies = [
     "jinja2>=3.1,<4",
     "cryptography>=41,<44",
     "orjson>=3.9,<4",
+    "aiosmtplib>=5.1.2",
 ]
 
 [project.optional-dependencies]
@@ -92,6 +93,15 @@ ignore = [
     "PLR0913", # too-many-arguments — 6 args is fine for a client
     "FBT001",  # boolean-type-in-def
     "FBT002",  # boolean-default
+    "ARG002",  # unused-method-argument — protocol stubs legitimately ignore args
+    "BLE001",  # blind-except — catch-and-log patterns are intentional
+    "PLC0415", # import-outside-top-level — lazy imports avoid circular deps
+    "FBT003",  # boolean-positional-value-in-call — acceptable call pattern
+    "SIM102",  # collapsible-if — nested ifs are clearer in guard patterns
+    "SIM105",  # suppressible-exception — all exception types are deliberate
+    "PLW2901", # redefined-loop-name — intentional in iterative code
+    "LOG015",  # root-logger-call — pipeline uses logging.warning for broadcast
+    "ARG001",  # unused-function-argument — protocol stubs and callback signatures
 ]
 
 [tool.ruff.lint.per-file-ignores]

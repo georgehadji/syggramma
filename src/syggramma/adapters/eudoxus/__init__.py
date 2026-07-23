@@ -263,7 +263,8 @@ class EudoxusClient:
             return
 
         if response.status_code == 429:
-            raise RateLimitedError(f"Rate limited: {response.headers.get('Retry-After', 'unknown')}")
+            retry = response.headers.get('Retry-After', 'unknown')
+            raise RateLimitedError(f"Rate limited: {retry}")
 
         response.raise_for_status()
 

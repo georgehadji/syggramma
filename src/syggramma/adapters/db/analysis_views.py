@@ -64,13 +64,19 @@ SELECT
     -- Simple keyword overlap score: fraction of book words found in course title
     (
         SELECT COUNT(*)
-        FROM unnest(string_to_array(lower(regexp_replace(b.title, '[^\\w\\s]', '', 'g')), ' ')) AS bw
+        FROM unnest(string_to_array(
+            lower(regexp_replace(b.title, '[^\\w\\s]', '', 'g')), ' '
+        )) AS bw
         WHERE bw IN (
-            SELECT unnest(string_to_array(lower(regexp_replace(c.title, '[^\\w\\s]', '', 'g')), ' '))
+            SELECT unnest(string_to_array(
+                lower(regexp_replace(c.title, '[^\\w\\s]', '', 'g')), ' '
+            ))
         )
         AND length(bw) > 2
     )::float / GREATEST(
-        (SELECT COUNT(*) FROM unnest(string_to_array(lower(regexp_replace(b.title, '[^\\w\\s]', '', 'g')), ' ')) AS bw2 WHERE length(bw2) > 2),
+        (SELECT COUNT(*) FROM unnest(string_to_array(
+            lower(regexp_replace(b.title, '[^\\w\\s]', '', 'g')), ' '
+        )) AS bw2 WHERE length(bw2) > 2),
         1
     ) AS title_similarity
 FROM book b

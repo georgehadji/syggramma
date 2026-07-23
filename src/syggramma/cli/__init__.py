@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import asyncio
-from typing import Optional
 
 import typer
 
@@ -65,7 +64,10 @@ def harvest(
                        f"{run.total_courses} courses, {run.total_books} books")
             for unit in run.units:
                 if unit.error:
-                    typer.echo(f"  ⚠  secretariat {unit.secretariat_id} [{unit.status}]: {unit.error}")
+                    typer.echo(
+                        f"  warning  secretariat {unit.secretariat_id}"
+                        f" [{unit.status}]: {unit.error}",
+                    )
         await client.close()
 
     asyncio.run(_run())
@@ -76,6 +78,90 @@ def version() -> None:
     """Show the installed version."""
     from syggramma import __version__
     typer.echo(f"Syggramma v{__version__}")
+
+
+@app.command()
+def scheduler(
+    action: str = typer.Option(
+        "start",
+        "--action", "-a",
+        help="start | stop | status",
+    ),
+) -> None:
+    """Manage the background scheduler (APScheduler).
+
+    The scheduler runs periodic harvest and analysis jobs.
+    """
+    from apscheduler.schedulers.asyncio import AsyncIOScheduler
+    from apscheduler.triggers.interval import IntervalTrigger
+
+    sched = AsyncIOScheduler()
+
+    @sched.scheduled_job(IntervalTrigger(hours=24))  # type: ignore[untyped-decorator]
+    async def harvest_job() -> None:
+        """Daily harvest of the current academic year."""
+        client = EudoxusClient(
+            base_url=settings.eudoxus_base_url,
+            max_rps=settings.eudoxus_max_rps,
+            max_concurrent=settings.eudoxus_max_concurrent,
+            user_agent=settings.eudoxus_user_agent,
+        )
+        try:
+            store = SnapshotStore()
+            pipeline = HarvestPipeline(
+                eudoxus=client,
+                snapshot_store=store,
+                max_concurrent_units=2,
+            )
+            results = await pipeline.run(
+                years=[2025],
+                pilot_secretariat_ids=None,
+            )
+            typer.echo(f"Harvest completed: {len(results)} year-runs")
+        finally:
+            await client.close()
+
+    @sched.scheduled_job(IntervalTrigger(hours=6))  # type: ignore[untyped-decorator]
+    async def outbox_flush_job() -> None:
+        """Flush the outreach outbox every 6 hours."""
+        import asyncio as _asyncio
+
+        from syggramma.adapters.mail import SmtpMailer
+        from syggramma.pipelines.outreach import EventStore, Outbox
+
+        store = EventStore()
+        outbox = Outbox(store)
+        if outbox.has_pending():
+            from syggramma.domain import Message as _Msg
+            from syggramma.kernel import Result as _Res
+            mailer = SmtpMailer()
+            try:
+                def sync_mailer(msg: _Msg) -> _Res[None]:
+                    return _asyncio.run(mailer.send(
+                        msg.person_id,  # type: ignore[arg-type]
+                        msg.subject,
+                        msg.body,
+                        msg.campaign_id,  # type: ignore[arg-type]
+                        msg.id,  # type: ignore[arg-type]
+                    ))
+                outbox.dispatch(sync_mailer)
+            finally:
+                await mailer.close()
+            typer.echo("Outbox flushed")
+
+    if action == "start":
+        sched.start()
+        typer.echo("Scheduler started (harvest: 24h, outbox: 6h)")
+        import asyncio
+        try:
+            asyncio.get_event_loop().run_forever()
+        except (KeyboardInterrupt, SystemExit):
+            sched.shutdown()
+    elif action == "stop":
+        sched.shutdown()
+        typer.echo("Scheduler stopped")
+    else:
+        typer.echo(f"Scheduler status: {'running' if sched.running else 'stopped'}")
 
 
 def main() -> None:

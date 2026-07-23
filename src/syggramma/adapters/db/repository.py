@@ -194,14 +194,14 @@ class Repository:
 
     # ── Queries ─────────────────────────────────────────────────────────
 
-    async def get_institutions(self) -> list[Any]:
+    async def get_institutions(self) -> Sequence[Any]:
         async with self._session_factory() as session:
             result = await session.execute(
                 text("SELECT * FROM institution ORDER BY name"),
             )
             return list(result.mappings().all())
 
-    async def get_departments(self, institution_id: int | None = None) -> list[Any]:
+    async def get_departments(self, institution_id: int | None = None) -> Sequence[Any]:
         async with self._session_factory() as session:
             if institution_id:
                 result = await session.execute(
@@ -228,7 +228,7 @@ class Repository:
             )
             return list(result.mappings().all())
 
-    async def get_books_by_publisher(self, publisher_id: str) -> list[Any]:
+    async def get_books_by_publisher(self, publisher_id: str) -> Sequence[Any]:
         async with self._session_factory() as session:
             result = await session.execute(
                 text("SELECT * FROM book WHERE publisher_id = :pub_id ORDER BY title"),

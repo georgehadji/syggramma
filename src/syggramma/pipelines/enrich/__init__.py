@@ -12,7 +12,7 @@ ARCHITECTURE.md §6.4:
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 from syggramma.domain import Provenance
@@ -42,7 +42,7 @@ def _provenance(source_url: str, method: str, now: datetime | None = None) -> Pr
     return Provenance(
         source_url=source_url,
         snapshot_id=SnapshotId(0),  # Set by pipeline
-        fetched_at=now or datetime.now(timezone.utc),
+        fetched_at=now or datetime.now(UTC),
         method=method,
     )
 
@@ -72,7 +72,7 @@ class EnrichmentPipeline:
         to fetch more detailed records from ORCID and Crossref.
         """
         profile = EnrichedProfile()
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
 
         # 1. OpenAlex search
         try:
@@ -98,7 +98,7 @@ class EnrichmentPipeline:
     def enrich_by_openalex_id(self, openalex_id: str) -> EnrichedProfile:
         """Enrich directly by OpenAlex ID."""
         profile = EnrichedProfile()
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
 
         try:
             data = self._openalex.fetch_author_by_id(openalex_id)
@@ -114,7 +114,12 @@ class EnrichmentPipeline:
 
     # ── Internal enrichment steps ──────────────────────────────────────
 
-    def _merge_openalex(self, profile: EnrichedProfile, data: dict[str, Any], now: datetime) -> None:
+    def _merge_openalex(
+        self,
+        profile: EnrichedProfile,
+        data: dict[str, Any],
+        now: datetime,
+    ) -> None:
         """Merge OpenAlex data into the profile with provenance."""
         source_url = f"https://api.openalex.org/authors/{data.get('openalex_id', '')}"
         prov = _provenance(source_url, "openalex.search:v1", now)
@@ -163,10 +168,15 @@ class EnrichmentPipeline:
         except Exception:
             pass
 
-    def _enrich_works_from_openalex(self, profile: EnrichedProfile, openalex_id: str, now: datetime) -> None:
+    def _enrich_works_from_openalex(
+        self,
+        profile: EnrichedProfile,
+        openalex_id: str,
+        now: datetime,
+    ) -> None:
         """Fetch works for an OpenAlex author."""
         try:
-            works = self._openalex.fetch_works(openalex_id)
+            self._openalex.fetch_works(openalex_id)
             # Works are not merged into the profile directly in v1
             # Future versions may aggregate publication details
         except Exception:

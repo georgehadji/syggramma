@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 import httpx
@@ -41,7 +41,7 @@ class CrossrefClient:
         return Parsed(
             value=data.get("message", {}),
             source_snapshot_id=SnapshotId(0),
-            parsed_at=datetime.now(timezone.utc),
+            parsed_at=datetime.now(UTC),
         )
 
     def search_by_author(self, author_name: str, rows: int = 10) -> Parsed[list[dict[str, Any]]]:
@@ -55,7 +55,7 @@ class CrossrefClient:
         return Parsed(
             value=data.get("message", {}).get("items", []),
             source_snapshot_id=SnapshotId(0),
-            parsed_at=datetime.now(timezone.utc),
+            parsed_at=datetime.now(UTC),
         )
 
     def extract_publication(self, work: dict[str, Any]) -> dict[str, Any]:

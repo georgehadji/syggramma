@@ -2,9 +2,36 @@
 
 from __future__ import annotations
 
+from collections.abc import Sequence
+from typing import Any
+
 import httpx
 import pytest
-from syggramma.api import app
+from syggramma.api import app, get_repo
+from syggramma.adapters.db.repository import Repository
+from syggramma.domain import Match
+from syggramma.kernel import MatchId
+
+
+class StubRepository:
+    """A Repository stub that doesn't connect to PostgreSQL."""
+
+    async def get_matches_for_review(self, limit: int = 50) -> Sequence[Match]:
+        return []  # type: ignore[return-value]
+
+    async def __aenter__(self) -> StubRepository:
+        return self
+
+    async def __aexit__(self, *args: Any) -> None:
+        pass
+
+
+@pytest.fixture(autouse=True)
+def override_repo() -> None:
+    """Override the Repository dependency for all API tests."""
+    app.dependency_overrides[get_repo] = lambda: StubRepository()
+    yield
+    app.dependency_overrides.clear()
 
 
 @pytest.fixture

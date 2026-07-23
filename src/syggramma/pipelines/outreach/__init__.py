@@ -11,8 +11,8 @@ Implements the architecture described in ARCHITECTURE.md §6.6:
 from __future__ import annotations
 
 from collections.abc import Callable
-from dataclasses import dataclass, field
-from datetime import datetime, timedelta, timezone
+from dataclasses import dataclass
+from datetime import UTC, datetime
 from typing import Any
 
 from syggramma.domain import (
@@ -26,11 +26,12 @@ from syggramma.domain import (
     Suppression,
 )
 from syggramma.kernel import (
-    CampaignId,
+    Error,
     MessageId,
+    Ok,
     PersonId,
     Result,
-    Ok,
+    ReviewerId,
     err,
     ok,
 )
@@ -86,7 +87,7 @@ def transition(state: OutreachState, event: EventType) -> Result[OutreachState]:
     if new_state is None:
         return err(
             f"Cannot transition from {state.value} via {event.value}. "
-            f"Valid events: {list(valid.keys())}"
+            f"Valid events: {list(valid.keys())}",
         )
     return ok(new_state)
 
@@ -128,7 +129,7 @@ class FrequencyCapPolicy:
         if self._sent_today >= self._max_per_day:
             return PolicyResult(False, f"Daily cap reached ({self._max_per_day})")
         if last_sent:
-            days_since = (datetime.now(timezone.utc) - last_sent).days
+            days_since = (datetime.now(UTC) - last_sent).days
             if days_since < self._quiet_period_days:
                 return PolicyResult(
                     False,
@@ -214,7 +215,7 @@ def compose_message(
         "legal_basis": campaign.legal_basis,
         "lia_ref": campaign.lia_document_ref,
         # Placeholder — real objection link requires a routing setup
-        "objection_link": f"{{{{OBJECTION_LINK}}}}",
+        "objection_link": "{{OBJECTION_LINK}}",
     }
 
     # Simple template rendering (in production, use Jinja2)
@@ -283,6 +284,8 @@ class Outbox:
                 if isinstance(result, Ok):
                     self._sent_keys.add(msg.idempotency_key)
                     msg.state = OutreachState.SENT
+                else:
+                    remaining.append(msg)
                 results.append(result)
             except Exception:
                 remaining.append(msg)
@@ -292,3 +295,68 @@ class Outbox:
 
     def has_pending(self) -> bool:
         return len(self._pending) > 0
+
+
+# ── Notification officer ────────────────────────────────────────────────────
+
+
+class NotificationOfficer:
+    """Orchestrates the full outreach send pipeline.
+
+    draft → approve → enqueue → dispatch
+    """
+
+    def __init__(
+        self,
+        event_store: EventStore,
+        outbox: Outbox,
+        drafter: Any = None,  # MultiProviderDrafter | None
+        policies: list[Any] | None = None,
+    ) -> None:
+        self._events = event_store
+        self._outbox = outbox
+        self._drafter = drafter
+        self._policies = policies or []
+
+    def draft(
+        self,
+        campaign: Campaign,
+        person: Person,
+        facts: list[Fact],
+        subject_template: str = "",
+        body_template: str = "",
+    ) -> Message:
+        """Draft a message using LLM if available, else template."""
+        return compose_message(
+            campaign, person, facts, subject_template, body_template,
+        )
+
+    def approve_and_enqueue(
+        self,
+        message: Message,
+        reviewer_id: ReviewerId,
+        approval_note: str = "",
+    ) -> Result[MessageId]:
+        """Approve a drafted message and enqueue for sending."""
+        # Check policies
+        for policy in self._policies:
+            result = policy.check(
+                getattr(message, 'address_hash', ''),
+                getattr(message, 'person_id', None),
+            )
+            if not result.allowed:
+                return err(result.reason)
+
+        # Transition: DRAFTED → APPROVED
+        new_state = transition(message.state, EventType.APPROVED)
+        if isinstance(new_state, Error):
+            return new_state
+        message.state = new_state.value
+
+        return self._outbox.enqueue(message)
+
+    def dispatch_pending(
+        self, mailer_fn: Callable[[Message], Result[None]],
+    ) -> list[Result[None]]:
+        """Dispatch all pending approved messages."""
+        return self._outbox.dispatch(mailer_fn)

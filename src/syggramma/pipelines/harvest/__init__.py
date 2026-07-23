@@ -189,7 +189,11 @@ class HarvestPipeline:
                 courses_data = await self._eudoxus.fetch_courses(sid, year)
 
                 # Store snapshot
-                body = json.dumps(courses_data.value, ensure_ascii=False, default=str).encode("utf-8")
+                body = json.dumps(
+                    courses_data.value,
+                    ensure_ascii=False,
+                    default=str,
+                ).encode("utf-8")
                 raw = self._snapshot_store.store(
                     url=f"get-semesters-courses?sId={sid}&y={year}",
                     body=body,
