@@ -80,15 +80,22 @@ ignore = [
     "EM101",   # raw-string-in-exception
     "EM102",   # f-string-in-exception
     "PLR2004", # magic-value-comparison
+    "RUF001",  # ambiguous-unicode-string — Greek text is intentional
     "RUF002",  # ambiguous-unicode-character-in-docstring
+    "RUF003",  # ambiguous-unicode-comment — Greek comments are intentional
     "SLOT000", # slots-for-str-subclass
     "TC001",   # type-checking-imports — all imports valid at runtime
     "TC003",   # type-checking-stdlib-imports
+    "TRY003",  # exception-message-avoidance — messages are fine inline
     "UP046",   # generic-class-style — python 3.12 style is fine
+    "N818",    # exception-suffix — naming convention
+    "PLR0913", # too-many-arguments — 6 args is fine for a client
+    "FBT001",  # boolean-type-in-def
+    "FBT002",  # boolean-default
 ]
 
 [tool.ruff.lint.per-file-ignores]
-"tests/**" = ["ANN", "D", "ARG", "S101"]
+"tests/**" = ["ANN", "D", "ARG", "S101", "RUF001", "RUF003"]
 
 [tool.ruff.format]
 quote-style = "double"
@@ -131,6 +138,7 @@ filterwarnings = [
     "error",
     "ignore::DeprecationWarning:alembic.*",
     "ignore::DeprecationWarning:pkg_resources",
+    "ignore::ResourceWarning",
 ]
 addopts = "-ra --strict-config --strict-markers -p no:cacheprovider"
 

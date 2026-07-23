@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="el">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Syggramma — Dashboard</title>
+    <script src="https://unpkg.com/htmx.org@2.0.4"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+               background: #f5f5f5; color: #333; line-height: 1.6; }
+        .container { max-width: 1200px; margin: 0 auto; padding: 1rem; }
+        header { background: #1a1a2e; color: #fff; padding: 1rem 0; }
+        header .container { display: flex; justify-content: space-between; align-items: center; }
+        header h1 { font-size: 1.5rem; }
+        header nav a { color: #ccc; text-decoration: none; margin-left: 1.5rem; }
+        header nav a:hover { color: #fff; }
+        .queue-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+                       gap: 1.5rem; margin-top: 2rem; }
+        .queue-card { background: #fff; border-radius: 8px; padding: 1.5rem;
+                       box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+        .queue-card h2 { font-size: 1.1rem; margin-bottom: 0.5rem; }
+        .queue-count { font-size: 2.5rem; font-weight: 700; color: #1a1a2e; }
+        .queue-card a { display: inline-block; margin-top: 1rem; color: #4361ee; text-decoration: none; }
+        .queue-card a:hover { text-decoration: underline; }
+        .stats { margin-top: 2rem; background: #fff; border-radius: 8px; padding: 1.5rem;
+                 box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+        .stats h2 { font-size: 1.1rem; margin-bottom: 0.5rem; }
+    </style>
+</head>
+<body>
+    <header>
+        <div class="container">
+            <h1>Syggramma</h1>
+            <nav>
+                <a href="/">Dashboard</a>
+                <a href="/review/matches">Match Review</a>
+                <a href="/review/merges">Person Merges</a>
+            </nav>
+        </div>
+    </header>
+    <main class="container">
+        <h2>Review Queues</h2>
+        <div class="queue-grid">
+            <div class="queue-card">
+                <h2>Match Review</h2>
+                <div class="queue-count" hx-get="/review/matches/count" hx-trigger="load" hx-swap="innerHTML">
+                    {{ queues.match_review }}
+                </div>
+                <p>Unresolved professor ↔ author matches</p>
+                <a href="/review/matches">Review matches →</a>
+            </div>
+            <div class="queue-card">
+                <h2>Person Merges</h2>
+                <div class="queue-count" hx-get="/review/merges/count" hx-trigger="load" hx-swap="innerHTML">
+                    {{ queues.person_merge }}
+                </div>
+                <p>Candidate person record merges</p>
+                <a href="/review/merges">Review merges →</a>
+            </div>
+        </div>
+    </main>
+</body>
+</html>

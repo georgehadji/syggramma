@@ -38,6 +38,24 @@ from syggramma.kernel import (
     Tainted,
 )
 
+# ── Pipeline-level exceptions ──────────────────────────────────────────────
+
+
+class HarvestError(Exception):
+    """Base for errors that cross the adapter→pipeline boundary."""
+
+
+class SuspiciousEmptyResult(HarvestError):
+    """A department known to have data returned empty."""
+
+
+class RateLimitedError(HarvestError):
+    """The upstream service returned a 429 or rate-limit response."""
+
+
+class RecaptchaChallengeError(HarvestError):
+    """The upstream service presented a reCAPTCHA challenge."""
+
 # ── Ingestion ports ─────────────────────────────────────────────────────────
 
 
@@ -47,6 +65,10 @@ class CourseCatalogPort(Protocol):
 
     async def fetch_institutions(self) -> Parsed[list[dict[str, object]]]:
         """Return the full institution/department tree."""
+        ...
+
+    async def fetch_institution_academics(self) -> Parsed[dict[str, object]]:
+        """Return the full response including institutionAcademics and academicSecretariats."""
         ...
 
     async def fetch_courses(
@@ -73,6 +95,10 @@ class CourseCatalogPort(Protocol):
         """Reverse index: which courses distribute a given book."""
         ...
 
+    def mark_prior_year_data(self, secretariat_id: int, has_data: bool) -> None:
+        """Record that a secretariat had data in a previously harvested year."""
+        ...
+
 
 # ── Snapshot storage port ───────────────────────────────────────────────────
 
@@ -81,15 +107,11 @@ class CourseCatalogPort(Protocol):
 class SnapshotStorePort(Protocol):
     """Content-addressed storage for raw HTTP responses (L0)."""
 
-    async def store(self, url: str, body: bytes, headers: dict[str, str] | None = None) -> Raw:
+    def store(self, url: str, body: bytes, headers: dict[str, str] | None = None) -> Raw:
         """Store a response and return its Raw wrapper with snapshot_id."""
         ...
 
-    async def load(self, snapshot_id: int) -> Raw | None:
-        """Load a previously stored snapshot."""
-        ...
-
-    async def exists(self, sha256: str) -> bool:
+    def exists(self, sha256: str) -> bool:
         """Check if a snapshot with the given hash already exists."""
         ...
 
@@ -154,12 +176,58 @@ class MatcherPort(Protocol):
         ...
 
 
-# ── Enrichment ports ────────────────────────────────────────────────────────
+# ── Enrichment ports (sync, for synchronous pipelines) ─────────────────────
+
+
+@runtime_checkable
+class SyncOpenAlexPort(Protocol):
+    """Synchronous OpenAlex API for author profiles."""
+
+    def search_author(self, display_name: str) -> Parsed[list[dict[str, object]]]:
+        """Search for an author by name."""
+        ...
+
+    def fetch_author_by_id(self, openalex_id: str) -> Parsed[dict[str, object]]:
+        """Fetch an author by their OpenAlex id."""
+        ...
+
+    def fetch_works(self, author_id: str, per_page: int = 25) -> Parsed[list[dict[str, object]]]:
+        """Fetch works for an author."""
+        ...
+
+    def extract_profile(self, author_data: dict[str, object]) -> dict[str, object]:
+        """Extract a standardised profile."""
+        ...
+
+    def close(self) -> None: ...
+
+
+@runtime_checkable
+class SyncOrcidPort(Protocol):
+    """Synchronous ORCID API."""
+
+    def fetch_record(self, orcid: str) -> Parsed[dict[str, object]]: ...
+    def extract_name(self, record: dict[str, object]) -> dict[str, str]: ...
+    def extract_external_ids(self, record: dict[str, object]) -> list[dict[str, str]]: ...
+    def close(self) -> None: ...
+
+
+@runtime_checkable
+class SyncCrossrefPort(Protocol):
+    """Synchronous Crossref API."""
+
+    def fetch_works_by_doi(self, doi: str) -> Parsed[dict[str, object]]: ...
+    def search_by_author(self, author_name: str, rows: int = 10) -> Parsed[list[dict[str, object]]]: ...
+    def extract_publication(self, work: dict[str, object]) -> dict[str, object]: ...
+    def close(self) -> None: ...
+
+
+# ── Enrichment ports (async) ────────────────────────────────────────────────
 
 
 @runtime_checkable
 class OpenAlexPort(Protocol):
-    """OpenAlex API for author profiles."""
+    """Async OpenAlex API for author profiles."""
 
     async def fetch_author(self, name: str) -> Parsed[list[dict[str, object]]]:
         """Search for an author by name."""

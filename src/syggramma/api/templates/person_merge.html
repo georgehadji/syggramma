@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="el">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Person Merges — Syggramma</title>
+    <script src="https://unpkg.com/htmx.org@2.0.4"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+               background: #f5f5f5; color: #333; line-height: 1.6; }
+        .container { max-width: 1000px; margin: 0 auto; padding: 1rem; }
+        header { background: #1a1a2e; color: #fff; padding: 1rem 0; }
+        header .container { display: flex; justify-content: space-between; align-items: center; }
+        header h1 { font-size: 1.5rem; }
+        header nav a { color: #ccc; text-decoration: none; margin-left: 1.5rem; }
+        header nav a:hover { color: #fff; }
+        .empty-state { text-align: center; padding: 4rem 2rem; color: #888; }
+        .merge-list { margin-top: 1.5rem; }
+        .merge-card { background: #fff; border-radius: 8px; padding: 1.5rem; margin-bottom: 1rem;
+                      box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+        .merge-card h3 { margin-bottom: 0.5rem; }
+        .merge-aliases { display: flex; flex-wrap: wrap; gap: 0.5rem; margin: 1rem 0; }
+        .alias-tag { background: #e0e7ff; color: #4361ee; padding: 0.25rem 0.75rem; border-radius: 20px;
+                     font-size: 0.85rem; }
+        .back-link { display: inline-block; margin-top: 1rem; color: #4361ee; text-decoration: none; }
+    </style>
+</head>
+<body>
+    <header>
+        <div class="container">
+            <h1>Syggramma</h1>
+            <nav>
+                <a href="/">Dashboard</a>
+                <a href="/review/matches">Match Review</a>
+                <a href="/review/merges">Person Merges</a>
+            </nav>
+        </div>
+    </header>
+    <main class="container">
+        <h2>Person Merge Queue</h2>
+        <p class="back-link"><a href="/">← Back to Dashboard</a></p>
+
+        {% if merges %}
+        <div class="merge-list">
+            {% for merge in merges %}
+            <div class="merge-card">
+                <h3>Merge candidates</h3>
+                <p>Group of {{ merge.alias_count }} aliases</p>
+                <p>Evidence: {{ merge.evidence }}</p>
+                <div class="merge-aliases">
+                    {% for alias in merge.aliases %}
+                    <span class="alias-tag">{{ alias }}</span>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <div class="empty-state">
+            <p>No person merges pending.</p>
+            <p>When the resolve pipeline finds alias groups that may represent the same
+               person, they appear here for review.</p>
+        </div>
+        {% endif %}
+    </main>
+</body>
+</html>
