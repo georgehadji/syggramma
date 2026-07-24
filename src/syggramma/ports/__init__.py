@@ -20,7 +20,6 @@ from syggramma.domain import (
     Course,
     Department,
     Distribution,
-    Fact,
     Institution,
     Match,
     Message,
@@ -29,7 +28,6 @@ from syggramma.domain import (
 )
 from syggramma.kernel import (
     CampaignId,
-    Inferred,
     MessageId,
     Parsed,
     PersonId,
@@ -116,64 +114,20 @@ class SnapshotStorePort(Protocol):
         ...
 
 
-# ── Normalizer port ─────────────────────────────────────────────────────────
+# ── Normalizer port (Planned; use syggramma.pipelines.normalize directly) ────
 
 
 @runtime_checkable
 class PersonNameNormalizerPort(Protocol):
-    """Greek person-name normalisation.
-
-    The normaliser is a pure function with versioned transforms.
-    """
-
-    VERSION: str  # e.g. "normalize.person_name:v2"
-
-    def normalize(self, raw: str) -> str:
-        """Normalise a single person-name string to its canonical form."""
-        ...
-
-    def tokenize(self, raw: str) -> list[str]:
-        """Split a name field into individual name tokens."""
-        ...
-
-    def split_surname_given(self, tokens: list[str]) -> tuple[str | None, str | None]:
-        """Best-effort split into (surname, given).
-
-        Returns (None, None) when the split is ambiguous.
-        """
-        ...
+    ...
 
 
-# ── Matcher port ────────────────────────────────────────────────────────────
+# ── Matcher port (Planned; use syggramma.pipelines.resolve directly) ────────
 
 
 @runtime_checkable
 class MatcherPort(Protocol):
-    """Entity resolution for person names.
-
-    The matcher produces Inferred verdicts that require human
-    verification before reaching the outreach module.
-    """
-
-    RULES_VERSION: str  # e.g. "resolve.ensemble:v4"
-
-    async def match_course_professor(
-        self, course: Course, book: Book,
-    ) -> Inferred[Match]:
-        """Produce a match verdict for a professor ↔ course ↔ book triple."""
-        ...
-
-    async def find_candidates(
-        self, name: str, block_key: str,
-    ) -> Sequence[Person]:
-        """Find candidate persons for a name within a blocking key."""
-        ...
-
-    async def merge_persons(
-        self, person_a: Person, person_b: Person, evidence: str,
-    ) -> Inferred[Person]:
-        """Merge two person records into one."""
-        ...
+    ...
 
 
 # ── Enrichment ports (sync, for synchronous pipelines) ─────────────────────
@@ -278,34 +232,8 @@ class UniversityScraperPort(Protocol):
 
 @runtime_checkable
 class LlmPort(Protocol):
-    """Constrained LLM interface for structured extraction.
+    """LLM interface — use syggramma.adapters.llm.MultiProviderDrafter."""
 
-    **Safety rule:** The LLM must never receive free-form scraped content.
-    All scraped text is ``Tainted[str]`` and must pass through ``extract``
-    with a constrained schema.  The only entry point for scraped content
-    is ``extract(schema, tainted)``.
-    """
-
-    async def extract[T](
-        self, schema: type[T], tainted: Tainted[str],
-    ) -> Parsed[T]:
-        """Extract structured data from tainted text using a constrained schema.
-
-        The LLM may only emit values matching the schema; anything else
-        is discarded.  The result is ``Parsed[T]`` (L1), still requiring
-        human review before use in outreach.
-        """
-        ...
-
-    async def draft(
-        self, template_name: str, facts: list[Fact], campaign: Campaign,
-    ) -> tuple[str, str]:
-        """Draft a subject + body from a fixed fact list.
-
-        The LLM may rephrase facts but may **not** introduce new claims.
-        The fact list is closed — enforced by the type signature.
-        """
-        ...
 
 
 # ── Database port ───────────────────────────────────────────────────────────
@@ -388,6 +316,8 @@ class MailerPort(Protocol):
 
 
 # ── Clock port ──────────────────────────────────────────────────────────────
+
+
 
 
 @runtime_checkable

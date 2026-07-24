@@ -159,5 +159,17 @@ async def person_merge_queue(request: Request) -> HTMLResponse:
 # ── Health ─────────────────────────────────────────────────────────────────
 
 @app.get("/health")
-async def health() -> dict[str, str]:
-    return {"status": "ok", "version": __version__}
+async def health() -> dict[str, object]:
+    """Health check — verifies DB connectivity and returns component status."""
+    db_ok = False
+    try:
+        with _get_conn() as conn:
+            conn.execute("SELECT 1")
+            db_ok = True
+    except Exception:
+        pass
+    return {
+        "status": "ok" if db_ok else "degraded",
+        "version": __version__,
+        "db": "connected" if db_ok else "disconnected",
+    }

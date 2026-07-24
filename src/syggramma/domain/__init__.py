@@ -233,6 +233,12 @@ class Person:
     display_name: str | None = None
     created_at: datetime | None = None
 
+    def matches_surname(self, surname: str) -> bool:
+        """Check if a surname matches this person's canonical surname."""
+        if not self.canonical_surname or not surname:
+            return False
+        return self.canonical_surname.lower() == surname.lower()
+
 
 @dataclass
 class PersonAlias:
@@ -283,6 +289,16 @@ class Match:
     rules_version: str = ""
     created_at: datetime | None = None
     superseded_by: MatchId | None = None
+
+    def approve(self, reviewer_id: ReviewerId) -> None:
+        """Approve this match, promoting it to VERIFIED."""
+        if self.verdict != Verdict.UNCERTAIN:
+            raise ValueError(f"Cannot approve a match with verdict {self.verdict}")
+        self.verdict = Verdict.AUTHOR_SELF
+
+    def reject(self, reviewer_id: ReviewerId) -> None:
+        """Reject this match."""
+        self.verdict = Verdict.NOT_AUTHOR
 
 
 @dataclass

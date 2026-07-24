@@ -15,8 +15,11 @@ if sys.platform == "win32":
     )
 
 import uvicorn  # noqa: E402
+from syggramma.logging_setup import setup_logging
+from syggramma.config import settings
 
 if __name__ == "__main__":
+    setup_logging(settings.log_level)
     uvicorn.run(
         "syggramma.api:app",
         host="0.0.0.0",
