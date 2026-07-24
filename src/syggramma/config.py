@@ -72,7 +72,22 @@ class Settings(BaseSettings):
     mail_from: str = "noreply@kyriakidis.gr"
     mail_from_name: str = "Εκδόσεις Κυριακίδη"
 
-    # ── Outreach ─────────────────────────────────────────────────────────
+    # ── Kyriakidis publisher identity ──────────────────────────────
+    kyriakidis_publisher_id: str = "149848"
+    """Publisher ID for the client's books in the Eudoxus registry.
+
+    Note: There is a similarly-named competitor with publisher_id
+    "245907" (Αφοί Κυριακίδη-ΕΚΔΟΣΕΙΣ Α.Ε.).  Do NOT confuse the two.
+    All analysis views filter by THIS id only.  Competitive analysis
+    uses the separate competitor_publisher_id below.
+    """
+    kyriakidis_competitor_id: str = "245907"
+    """Publisher ID for the competitor (Αφοί Κυριακίδη).
+
+    Used only in competitive analysis views for head-to-head comparison.
+    """
+
+    # ── Outreach ───────────────────────────────────────────────────────────
     outreach_max_per_day: int = 50
     outreach_quiet_period_days: int = 90
     outreach_default_legal_basis: str = "GDPR Art. 6(1)(f) — Legitimate Interest"

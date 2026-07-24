@@ -1,0 +1,20 @@
+K Y R I A K I D I S   S P L I T   A N A L Y S I S
+============================================================
+                                      EMEIS   ANTAGONISTES
+publisher_id                         149848         245907
+Books                                   171            155
+Professors                              235            346
+Courses                                 433            553
+Profs/book                             1.4           2.2
+Courses/book                           2.5           3.6
+Market share                          1.3%          2.0%
+Rank (by profs)                          46             35
+
+Shared professors: 11
+Friendly non-authors (EMEIS): 234
+
+KEY INSIGHT:
+- Competitor has 111 more professors with 16 fewer books
+- Competitor ranks #35 vs us at #46 by professor reach
+- Their books have significantly wider adoption rate
+- The two publishers are DIRECT COMPETITORS sharing {shared} professors

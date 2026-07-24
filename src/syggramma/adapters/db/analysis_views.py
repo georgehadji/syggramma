@@ -393,6 +393,42 @@ FROM leads
 ORDER BY total_score DESC, lead_type;
 """
 
+# ── 9. Kyriakidis head-to-head ──────────────────────────────────────────
+KYRIAKIDIS_HEAD_TO_HEAD = """
+CREATE MATERIALIZED VIEW IF NOT EXISTS mv_kyriakidis_head_to_head AS
+WITH our_courses AS (
+    SELECT DISTINCT c.professor_raw, c.id AS course_id, c.year
+    FROM course c JOIN distribution d ON d.course_id = c.id
+    JOIN book b ON b.id = d.book_id WHERE b.publisher_id = '149848'
+),
+their_courses AS (
+    SELECT DISTINCT c.professor_raw, c.id AS course_id, c.year
+    FROM course c JOIN distribution d ON d.course_id = c.id
+    JOIN book b ON b.id = d.book_id WHERE b.publisher_id = '245907'
+)
+SELECT
+    COALESCE(o.professor_raw, t.professor_raw) AS professor_raw,
+    CASE WHEN o.professor_raw IS NOT NULL AND t.professor_raw IS NOT NULL THEN 'shared'
+         WHEN o.professor_raw IS NOT NULL THEN 'ours_only' ELSE 'theirs_only' END AS loyalty,
+    COUNT(DISTINCT o.course_id) AS our_courses,
+    COUNT(DISTINCT t.course_id) AS their_courses
+FROM our_courses o FULL OUTER JOIN their_courses t ON o.professor_raw = t.professor_raw
+GROUP BY 1,2 ORDER BY loyalty, professor_raw;
+"""
+
+KYRIAKIDIS_YEARLY_COMPARISON = """
+CREATE MATERIALIZED VIEW IF NOT EXISTS mv_kyriakidis_yearly AS
+SELECT year,
+    COUNT(DISTINCT CASE WHEN publisher_id='149848' THEN course_id END) AS our_courses,
+    COUNT(DISTINCT CASE WHEN publisher_id='245907' THEN course_id END) AS their_courses,
+    COUNT(DISTINCT CASE WHEN publisher_id='149848' THEN prof END) AS our_professors,
+    COUNT(DISTINCT CASE WHEN publisher_id='245907' THEN prof END) AS their_professors
+FROM (SELECT c.year, b.publisher_id, c.id AS course_id, c.professor_raw AS prof
+      FROM course c JOIN distribution d ON d.course_id=c.id JOIN book b ON b.id=d.book_id
+      WHERE b.publisher_id IN ('149848','245907')) sub
+GROUP BY year ORDER BY year DESC;
+"""
+
 # ── All views in a list for easy iteration ──────────────────────────────────
 
 ALL_ANALYSIS_VIEWS = [
@@ -404,4 +440,6 @@ ALL_ANALYSIS_VIEWS = [
     ("mv_whitespace", WHITESPACE_VIEW),
     ("mv_stale_editions", STALE_EDITIONS_VIEW),
     ("mv_lead_score", LEAD_SCORE_VIEW),
+    ("mv_kyriakidis_head_to_head", KYRIAKIDIS_HEAD_TO_HEAD),
+    ("mv_kyriakidis_yearly", KYRIAKIDIS_YEARLY_COMPARISON),
 ]
