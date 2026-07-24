@@ -3,8 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Match Detail — Syggramma</title>
-    <script src="https://unpkg.com/htmx.org@2.0.4"></script>
+    <title>Person Detail — Syggramma</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
@@ -15,71 +14,61 @@
         header h1 { font-size: 1.5rem; }
         .card { background: #fff; border-radius: 8px; padding: 1.5rem; margin-top: 1.5rem;
                 box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
-        .card h2 { font-size: 1.1rem; margin-bottom: 1rem; padding-bottom: 0.5rem; border-bottom: 1px solid #eee; }
-        .back-link { display: inline-block; margin-top: 1rem; color: #4361ee; text-decoration: none; }
-        .signal-bar { display: flex; justify-content: space-between; padding: 0.5rem 1rem;
-                      margin-bottom: 0.5rem; background: #f8f9fa; border-radius: 4px; }
-        .signal-bar .label { color: #666; }
-        .signal-bar .value { font-weight: 600; }
+        .card h2 { font-size: 1.1rem; margin-bottom: 1rem; border-bottom: 1px solid #eee; padding-bottom: 0.5rem; }
+        a { color: #4361ee; text-decoration: none; }
+        a:hover { text-decoration: underline; }
+        .alias-tag { display: inline-block; background: #e0e7ff; color: #4361ee; padding: 0.25rem 0.75rem;
+                     border-radius: 20px; margin: 0.25rem; font-size: 0.85rem; }
         .actions { margin-top: 2rem; display: flex; gap: 1rem; }
-        .btn { padding: 0.75rem 2rem; border: none; border-radius: 6px; font-size: 1rem;
-               cursor: pointer; font-weight: 600; }
+        .btn { padding: 0.75rem 2rem; border: none; border-radius: 6px; font-size: 1rem; cursor: pointer; font-weight: 600; }
         .btn-approve { background: #2d6a4f; color: #fff; }
-        .btn-approve:hover { background: #1b4332; }
         .btn-reject { background: #e76f51; color: #fff; }
-        .btn-reject:hover { background: #c14c3a; }
-        input[type="text"] { width: 100%; padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px;
-                             margin-top: 1rem; font-size: 0.9rem; }
+        input[type="text"] { width: 100%; padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px; margin-top: 1rem; }
         .flash { padding: 1rem; border-radius: 4px; margin: 1rem 0; }
         .flash-success { background: #d8f3dc; color: #2d6a4f; }
-        .flash-error { background: #f8d7da; color: #842029; }
     </style>
 </head>
 <body>
     <header>
         <div class="container">
-            <h1>Syggramma — Match Detail</h1>
+            <h1>Syggramma — Person Detail</h1>
         </div>
     </header>
     <main class="container">
-        <p><a href="/review/matches" class="back-link">← Back to queue</a></p>
+        <p><a href="/review/matches">← Back to queue</a></p>
 
         <div class="card">
-            <h2>Match: {{ match.professor_name }} ↔ {{ match.author_name }}</h2>
-            <p><strong>Book:</strong> {{ match.book_title }}</p>
-            <p><strong>Course:</strong> {{ match.course_title }} ({{ match.year }})</p>
-            <p><strong>Ensemble Score:</strong> {{ match.score }}</p>
-            <p><strong>Verdict:</strong> {{ match.verdict }}</p>
+            <h2>{{ match.get('display_name', 'Unknown') }}</h2>
+            <p><strong>Canonical surname:</strong> {{ match.get('canonical_surname', '') }}</p>
+            <p><strong>Canonical given:</strong> {{ match.get('canonical_given', '') }}</p>
+            <p><strong>Person ID:</strong> {{ match.get('id', '') }}</p>
         </div>
 
         <div class="card">
-            <h2>Feature Vector (Signals)</h2>
-            {% if match.features %}
-            {% for name, value in match.features.items() %}
-            <div class="signal-bar">
-                <span class="label">{{ name }}</span>
-                <span class="value">{{ "%.3f"|format(value) }}</span>
-            </div>
+            <h2>Aliases ({{ aliases|length }})</h2>
+            {% if aliases %}
+            {% for a in aliases %}
+            <span class="alias-tag">{{ a.get('raw_text', a.get('normalized', '')) }}</span>
             {% endfor %}
             {% else %}
-            <p>No signal data available.</p>
+            <p>No aliases recorded.</p>
             {% endif %}
         </div>
 
         <div class="card">
             <h2>Decision</h2>
             <form id="review-form">
-                <input type="text" name="reviewer_id" placeholder="Reviewer name (required)" required>
+                <input type="text" name="reviewer_id" placeholder="Reviewer ID" required>
                 <div class="actions">
-                    <button type="button" class="btn btn-approve"
-                            hx-post="/review/matches/{{ match.id }}/approve"
-                            hx-vals='{"reviewer_id": document.querySelector("#review-form input[name=reviewer_id]").value}'
+                    <button class="btn btn-approve"
+                            hx-post="/review/matches/{{ match.get('id', 0) }}/approve"
+                            hx-include="[name='reviewer_id']"
                             hx-target="#flash-message">
                         ✓ Approve
                     </button>
-                    <button type="button" class="btn btn-reject"
-                            hx-post="/review/matches/{{ match.id }}/reject"
-                            hx-vals='{"reviewer_id": document.querySelector("#review-form input[name=reviewer_id]").value}'
+                    <button class="btn btn-reject"
+                            hx-post="/review/matches/{{ match.get('id', 0) }}/reject"
+                            hx-include="[name='reviewer_id']"
                             hx-target="#flash-message">
                         ✗ Reject
                     </button>

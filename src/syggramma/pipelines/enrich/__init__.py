@@ -13,11 +13,14 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
+from logging import getLogger
 from typing import Any
 
 from syggramma.domain import Provenance
 from syggramma.kernel import SnapshotId
 from syggramma.ports import SyncCrossrefPort, SyncOpenAlexPort, SyncOrcidPort
+
+_enrich_logger = getLogger("syggramma.enrich")
 
 
 @dataclass
@@ -91,7 +94,7 @@ class EnrichmentPipeline:
                 if profile.openalex_id:
                     self._enrich_works_from_openalex(profile, profile.openalex_id, now)
         except Exception:
-            pass  # Logged in production
+            _enrich_logger.warning("OpenAlex search failed for %s", display_name)
 
         return profile
 
@@ -108,7 +111,7 @@ class EnrichmentPipeline:
             if profile.orcid:
                 self._enrich_from_orcid(profile, profile.orcid, now)
         except Exception:
-            pass
+            _enrich_logger.warning("OpenAlex detail fetch failed for %s", profile.openalex_id)
 
         return profile
 
@@ -166,7 +169,7 @@ class EnrichmentPipeline:
                     profile.scopus_id = ext["value"]
                     profile.field_sources["scopus_id"] = prov
         except Exception:
-            pass
+            _enrich_logger.warning("ORCID fetch failed for %s", orcid)
 
     def _enrich_works_from_openalex(
         self,
@@ -180,4 +183,4 @@ class EnrichmentPipeline:
             # Works are not merged into the profile directly in v1
             # Future versions may aggregate publication details
         except Exception:
-            pass
+            _enrich_logger.warning("OpenAlex works fetch failed for %s", openalex_id)

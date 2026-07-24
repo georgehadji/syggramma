@@ -39,11 +39,11 @@ async def fetch_books_for_course(
                     publisher_id = EXCLUDED.publisher_id, publisher_name = EXCLUDED.publisher_name
                 RETURNING id
             """, [
-                eid, book.get("isbn", ""), book.get("title", ""),
+                eid, book.get("isbn", "")[:32], book.get("title", ""),
                 book.get("subtitle") or None, book.get("authors", ""),
-                book.get("editionNumber") or None,
+                (book.get("editionNumber") or "")[:64] or None,
                 book.get("publicationYear"),
-                str(book.get("publisherId", "")) if book.get("publisherId") else None,
+                str(book.get("publisherId", ""))[:64] if book.get("publisherId") else None,
                 book.get("publisherName") or None,
             ])
             book_db_id = r.fetchone()[0]

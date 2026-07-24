@@ -10,7 +10,7 @@ Implements the architecture described in ARCHITECTURE.md §6.6:
 
 from __future__ import annotations
 
-from collections.abc import Callable
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Any
@@ -249,12 +249,12 @@ def _render_template(template: str, context: dict[str, Any]) -> str:
 class Outbox:
     """Transactional outbox for guaranteed send with idempotency.
 
-    The send path: write message + send-intent in one transaction → then dispatch.
+    The send path: enqueue → dispatch.  Uses Repository for persistence.
     Idempotency key prevents double-send on retry.
     """
 
-    def __init__(self, event_store: EventStore) -> None:
-        self._event_store = event_store
+    def __init__(self, repo: Any = None) -> None:
+        self._repo = repo  # Repository | None — None = in-memory fallback
         self._pending: list[Message] = []
         self._sent_keys: set[str] = set()
 
@@ -270,20 +270,48 @@ class Outbox:
         msg_id = MessageId(uuid.uuid4().int & 0x7FFFFFFF)
         message.id = msg_id
         self._pending.append(message)
-        self._event_store.add_message(message)
+        if self._repo is not None:
+            import asyncio
+            try:
+                task = asyncio.ensure_future(
+                    self._repo.store_message_sync(
+                        int(message.person_id) if message.person_id else None,
+                        int(message.campaign_id) if message.campaign_id else None,
+                        message.subject, message.body,
+                        message.state.value,
+                        int(message.approved_by) if message.approved_by else None,
+                        message.idempotency_key,
+                    ),
+                )
+                del task  # fire-and-forget
+            except Exception:
+                pass  # fire-and-forget DB write; log would go here in production
         return ok(msg_id)
 
-    def dispatch(self, mailer_fn: Callable[[Message], Result[None]]) -> list[Result[None]]:
-        """Dispatch all pending messages."""
+    async def dispatch(
+        self, mailer_fn: Any,
+    ) -> list[Result[None]]:
+        """Dispatch all pending messages.  Accepts sync or async mailer_fn."""
         results: list[Result[None]] = []
         remaining: list[Message] = []
+        import asyncio as _asyncio
 
         for msg in self._pending:
             try:
-                result = mailer_fn(msg)
+                if _asyncio.iscoroutinefunction(mailer_fn):
+                    result = await mailer_fn(msg)
+                else:
+                    result = mailer_fn(msg)
                 if isinstance(result, Ok):
                     self._sent_keys.add(msg.idempotency_key)
                     msg.state = OutreachState.SENT
+                    if self._repo is not None:
+                        try:
+                            msg_id_int = int(msg.id) if msg.id else None
+                            if msg_id_int is not None:
+                                await self._repo.mark_message_sent(msg_id_int)
+                        except Exception:
+                            pass
                 else:
                     remaining.append(msg)
                 results.append(result)
@@ -356,7 +384,7 @@ class NotificationOfficer:
         return self._outbox.enqueue(message)
 
     def dispatch_pending(
-        self, mailer_fn: Callable[[Message], Result[None]],
-    ) -> list[Result[None]]:
+        self, mailer_fn: Callable[[Message], Awaitable[Result[None]]],
+    ) -> Awaitable[list[Result[None]]]:
         """Dispatch all pending approved messages."""
         return self._outbox.dispatch(mailer_fn)

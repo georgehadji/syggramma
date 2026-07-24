@@ -4,7 +4,6 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Syggramma — Dashboard</title>
-    <script src="https://unpkg.com/htmx.org@2.0.4"></script>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
@@ -22,10 +21,11 @@
         .queue-card h2 { font-size: 1.1rem; margin-bottom: 0.5rem; }
         .queue-count { font-size: 2.5rem; font-weight: 700; color: #1a1a2e; }
         .queue-card a { display: inline-block; margin-top: 1rem; color: #4361ee; text-decoration: none; }
-        .queue-card a:hover { text-decoration: underline; }
         .stats { margin-top: 2rem; background: #fff; border-radius: 8px; padding: 1.5rem;
                  box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
-        .stats h2 { font-size: 1.1rem; margin-bottom: 0.5rem; }
+        .stats table { width: 100%; border-collapse: collapse; }
+        .stats td { padding: 0.5rem 0; border-bottom: 1px solid #eee; }
+        .stats td:last-child { text-align: right; font-weight: 700; }
     </style>
 </head>
 <body>
@@ -44,20 +44,24 @@
         <div class="queue-grid">
             <div class="queue-card">
                 <h2>Match Review</h2>
-                <div class="queue-count" hx-get="/review/matches/count" hx-trigger="load" hx-swap="innerHTML">
-                    {{ queues.match_review }}
-                </div>
+                <div class="queue-count">{{ queues.match_review }}</div>
                 <p>Unresolved professor ↔ author matches</p>
                 <a href="/review/matches">Review matches →</a>
             </div>
             <div class="queue-card">
                 <h2>Person Merges</h2>
-                <div class="queue-count" hx-get="/review/merges/count" hx-trigger="load" hx-swap="innerHTML">
-                    {{ queues.person_merge }}
-                </div>
+                <div class="queue-count">{{ queues.person_merge }}</div>
                 <p>Candidate person record merges</p>
                 <a href="/review/merges">Review merges →</a>
             </div>
+        </div>
+        <div class="stats">
+            <h2>Database Stats</h2>
+            <table>
+                <tr><td>Persons resolved</td><td>{{ queues.stats.get('person', 0) }}</td></tr>
+                <tr><td>Courses harvested</td><td>{{ queues.stats.get('course', 0) }}</td></tr>
+                <tr><td>Books imported</td><td>{{ queues.stats.get('book', 0) }}</td></tr>
+            </table>
         </div>
     </main>
 </body>

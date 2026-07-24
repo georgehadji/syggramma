@@ -94,7 +94,16 @@ class SmtpMailer:
         msg["From"] = formataddr(
             (self._settings.mail_from_name, self._settings.mail_from),
         )
-        msg["To"] = to.value_encrypted  # decrypted by caller in production
+        # Validate the contact value looks like an email before using it
+        value = to.value_encrypted
+        if "@" not in value:
+            import logging
+            logging.getLogger("syggramma.mail").warning(
+                "Contact %s value '%s' appears encrypted — "
+                "caller must decrypt before calling SmtpMailer.send()",
+                to.id, value[:20],
+            )
+        msg["To"] = value
         msg["Subject"] = subject
         msg["X-Campaign-Id"] = str(campaign_id)
         msg["X-Message-Id"] = str(message_id)

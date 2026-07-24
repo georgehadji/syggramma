@@ -124,27 +124,23 @@ def scheduler(
     @sched.scheduled_job(IntervalTrigger(hours=6))  # type: ignore[untyped-decorator]
     async def outbox_flush_job() -> None:
         """Flush the outreach outbox every 6 hours."""
-        import asyncio as _asyncio
-
         from syggramma.adapters.mail import SmtpMailer
         from syggramma.pipelines.outreach import EventStore, Outbox
 
         store = EventStore()
         outbox = Outbox(store)
         if outbox.has_pending():
-            from syggramma.domain import Message as _Msg
-            from syggramma.kernel import Result as _Res
             mailer = SmtpMailer()
             try:
-                def sync_mailer(msg: _Msg) -> _Res[None]:
-                    return _asyncio.run(mailer.send(
-                        msg.person_id,  # type: ignore[arg-type]
+                await outbox.dispatch(
+                    lambda msg: mailer.send(
+                        msg.person_id,
                         msg.subject,
                         msg.body,
-                        msg.campaign_id,  # type: ignore[arg-type]
-                        msg.id,  # type: ignore[arg-type]
-                    ))
-                outbox.dispatch(sync_mailer)
+                        msg.campaign_id,
+                        msg.id,
+                    ),
+                )
             finally:
                 await mailer.close()
             typer.echo("Outbox flushed")

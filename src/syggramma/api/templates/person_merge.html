@@ -43,24 +43,17 @@
 
         {% if merges %}
         <div class="merge-list">
-            {% for merge in merges %}
+            {% for p in merges %}
             <div class="merge-card">
-                <h3>Merge candidates</h3>
-                <p>Group of {{ merge.alias_count }} aliases</p>
-                <p>Evidence: {{ merge.evidence }}</p>
-                <div class="merge-aliases">
-                    {% for alias in merge.aliases %}
-                    <span class="alias-tag">{{ alias }}</span>
-                    {% endfor %}
-                </div>
+                <h3>{{ p.display_name }}</h3>
+                <p>Surname: {{ p.canonical_surname }} — {{ p.alias_count }} variants</p>
+                <a href="/review/matches/{{ p.id }}">View details</a>
             </div>
             {% endfor %}
         </div>
         {% else %}
         <div class="empty-state">
             <p>No person merges pending.</p>
-            <p>When the resolve pipeline finds alias groups that may represent the same
-               person, they appear here for review.</p>
         </div>
         {% endif %}
     </main>

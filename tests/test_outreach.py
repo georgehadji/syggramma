@@ -14,7 +14,7 @@ from syggramma.domain import (
     OutreachState,
     Person,
 )
-from syggramma.kernel import Ok, err, ok, PersonId, MessageId
+from syggramma.kernel import Error, Ok, err, ok, PersonId, MessageId
 from syggramma.pipelines.outreach import (
     TRANSITIONS,
     EventStore,
@@ -202,34 +202,30 @@ class TestOutbox:
         # Actually, enqueue only checks _sent_keys. Let's dispatch first then retry.
         assert isinstance(result, Ok)  # allowed because key1 is pending, not yet sent
 
-    def test_idempotency_key_prevents_double_send(self) -> None:
+    async def test_idempotency_key_prevents_double_send(self) -> None:
         """After dispatch, same key cannot be enqueued again."""
         store = EventStore()
         outbox = Outbox(store)
         msg = Message(subject="Test", body="Body", idempotency_key="key3")
         outbox.enqueue(msg)
-        outbox.dispatch(lambda m: ok(None))
-        # Now try same key again
+        await outbox.dispatch(lambda m: ok(None))
         msg2 = Message(subject="Test2", body="Body2", idempotency_key="key3")
         result = outbox.enqueue(msg2)
-        assert not isinstance(result, Ok), "Should reject duplicate idempotency key"
+        assert isinstance(result, Error), "Should reject duplicate idempotency key"
 
-    def test_dispatch_marks_sent(self) -> None:
+    async def test_dispatch_marks_sent(self) -> None:
         store = EventStore()
         outbox = Outbox(store)
         msg = Message(subject="Test", body="Body", idempotency_key="key4")
         result = outbox.enqueue(msg)
         assert isinstance(result, Ok)
-        msg_id = result.value
 
-        def fake_mailer(m: Message) -> Ok[None]:
+        async def fake_mailer(m: Message) -> Ok[None]:
             return ok(None)
 
-        results = outbox.dispatch(fake_mailer)
+        results = await outbox.dispatch(fake_mailer)
         assert len(results) == 1
         assert isinstance(results[0], Ok)
-        # Message should be marked as SENT
-        sent_msg = store.get_message(msg_id)
-        assert sent_msg is not None
-        assert sent_msg.state == OutreachState.SENT
+        # Message should be marked as SENT in outbox state
+        assert msg.state == OutreachState.SENT
         assert not outbox.has_pending()

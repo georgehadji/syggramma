@@ -321,7 +321,89 @@ class Repository:
             r = await session.execute(text("SELECT COUNT(*) FROM book"))
             row = r.fetchone()
             books = row[0] if row is not None else 0
-            return {"persons": persons, "courses": courses, "books": books}
+            r = await session.execute(text("SELECT COUNT(*) FROM outreach_event"))
+            row = r.fetchone()
+            events = row[0] if row is not None else 0
+            return {"persons": persons, "courses": courses, "books": books, "events": events}
+
+    # ── Outreach persistence ─────────────────────────────────────────────
+
+    async def store_outreach_event(
+        self, pid: int | None, cid: int | None, event_type: str,
+        payload: str | None, occurred_at: str, actor: str,
+    ) -> int | None:
+        async with self._session_factory() as session:
+            from sqlalchemy import text
+            result = await session.execute(
+                text("""
+                    INSERT INTO outreach_event
+                        (person_id, campaign_id, event_type, payload, occurred_at, actor)
+                    VALUES (:pid, :cid, :et, :pl::jsonb, :oa::timestamptz, :act)
+                    RETURNING id
+                """),
+                {"pid": pid, "cid": cid, "et": event_type,
+                 "pl": payload or "{}", "oa": occurred_at, "act": actor or ""},
+            )
+            row = result.fetchone()
+            await session.commit()
+            return row[0] if row else None
+
+    async def store_message_sync(
+        self, person_id: int | None, campaign_id: int | None,
+        subject: str, body: str, state: str,
+        approved_by: int | None, idempotency_key: str,
+    ) -> int | None:
+        async with self._session_factory() as session:
+            from sqlalchemy import text
+            result = await session.execute(
+                text("""
+                    INSERT INTO message
+                        (person_id, campaign_id, subject, body, state,
+                         approved_by, idempotency_key)
+                    VALUES (:pid, :cid, :sub, :body, :st, :ab, :ik)
+                    ON CONFLICT (idempotency_key) DO UPDATE SET
+                        state = EXCLUDED.state
+                    RETURNING id
+                """),
+                {"pid": person_id, "cid": campaign_id, "sub": subject,
+                 "body": body, "st": state, "ab": approved_by, "ik": idempotency_key},
+            )
+            row = result.fetchone()
+            await session.commit()
+            return row[0] if row else None
+
+    async def get_message_by_key(self, idempotency_key: str) -> str | None:
+        async with self._session_factory() as session:
+            from sqlalchemy import text
+            result = await session.execute(
+                text("SELECT id FROM message WHERE idempotency_key = :ik"),
+                {"ik": idempotency_key},
+            )
+            row = result.fetchone()
+            return str(row[0]) if row else None
+
+    async def mark_message_sent(self, message_id: int) -> None:
+        async with self._session_factory() as session:
+            from sqlalchemy import text
+            await session.execute(
+                text("UPDATE message SET state = 'sent', sent_at = NOW() WHERE id = :mid"),
+                {"mid": message_id},
+            )
+            await session.commit()
+
+    async def get_pending_messages(self) -> list[dict[str, object]]:
+        async with self._session_factory() as session:
+            from sqlalchemy import text
+            result = await session.execute(
+                text("""
+                    SELECT id, person_id, campaign_id, subject, body, state,
+                           approved_by, idempotency_key
+                    FROM message
+                    WHERE state IN ('approved', 'drafted')
+                    ORDER BY id
+                """),
+            )
+            return [dict(r._mapping) for r in result.fetchall()]  # noqa: SLF001
 
     async def store_review(self, review: Review) -> Review:
         async with self._session_factory() as session:

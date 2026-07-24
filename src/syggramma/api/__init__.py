@@ -51,16 +51,24 @@ def _render(name: str, request: Request, **context: Any) -> HTMLResponse:
 @app.get("/")
 async def dashboard(request: Request) -> HTMLResponse:
     with _get_conn() as conn:
-        matches = conn.execute("""
-            SELECT p.id, p.display_name, p.canonical_surname,
-                   COUNT(pa.id) AS alias_count
-            FROM person p
-            LEFT JOIN person_alias pa ON pa.person_id = p.id
-            GROUP BY p.id, p.display_name, p.canonical_surname
-            HAVING COUNT(pa.id) > 0
-            ORDER BY alias_count DESC
-            LIMIT 100
-        """).fetchall()
+        # Match review count: persons with at least one alias
+        row = conn.execute("""
+            SELECT COUNT(*) AS n FROM (
+                SELECT p.id FROM person p
+                JOIN person_alias pa ON pa.person_id = p.id
+                GROUP BY p.id HAVING COUNT(pa.id) > 0
+            ) sub
+        """).fetchone()
+        match_count: int = row["n"] if row else 0
+
+        row = conn.execute("""
+            SELECT COUNT(*) AS n FROM (
+                SELECT p.id FROM person p
+                JOIN person_alias pa ON pa.person_id = p.id
+                GROUP BY p.id HAVING COUNT(pa.id) > 1
+            ) sub
+        """).fetchone()
+        merge_count: int = row["n"] if row else 0
 
         stats = {}
         for tbl in ["person", "course", "book"]:
@@ -68,8 +76,8 @@ async def dashboard(request: Request) -> HTMLResponse:
             stats[tbl] = r["n"] if r else 0
 
     return _render("dashboard.html", request, queues={
-        "match_review": len(matches),
-        "person_merge": 0,
+        "match_review": match_count,
+        "person_merge": merge_count,
         "stats": stats,
     })
 

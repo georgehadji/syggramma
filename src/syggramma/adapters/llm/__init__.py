@@ -6,11 +6,14 @@ Whichever provider answers first with a valid key wins for that draft call.
 
 from __future__ import annotations
 
+import logging
 from typing import Any
 
 import httpx
 
 from syggramma.config import Settings
+
+_logger = logging.getLogger("syggramma.llm")
 
 
 class MultiProviderDrafter:
@@ -109,6 +112,7 @@ Rules:
                 data: dict[str, Any] = response.json()
                 return str(data["content"][0]["text"]).strip()
         except Exception:
+            _logger.warning("Anthropic API call failed")
             return None
 
     async def _try_openrouter(self, model: str, user_msg: str) -> str | None:
@@ -135,6 +139,7 @@ Rules:
                 data: dict[str, Any] = response.json()
                 return str(data["choices"][0]["message"]["content"]).strip()
         except Exception:
+            _logger.warning("OpenRouter API call failed for model %s", model)
             return None
 
     async def _try_grok(self, user_msg: str) -> str | None:
@@ -161,6 +166,7 @@ Rules:
                 data: dict[str, Any] = response.json()
                 return str(data["choices"][0]["message"]["content"]).strip()
         except Exception:
+            _logger.warning("Grok API call failed")
             return None
 
     # ── Shared helpers ─────────────────────────────────────────────────────
